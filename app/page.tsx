@@ -6,6 +6,7 @@ import { RegistrationForm } from '@/components/auth/registration-form';
 import { UserProfile } from '@/components/dashboard/user-profile';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { ErrorMessage } from '@/components/ui/error-message';
+import { BottomNavigation } from '@/components/ui/bottom-navigation';
 
 export default function Home() {
   const { isReady: telegramReady } = useTelegram();
@@ -46,5 +47,10 @@ export default function Home() {
     );
   }
 
-  return <UserProfile user={user} />;
+  return (
+    <div className="pb-16">
+      <UserProfile user={user} />
+      <BottomNavigation />
+    </div>
+  );
 }
