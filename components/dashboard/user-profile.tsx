@@ -1,9 +1,12 @@
 'use client';
 
+import { useState } from 'react';
+import { useTelegram } from '@/hooks/use-telegram';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { User, Building2, Shield, Calendar, Hash } from 'lucide-react';
+import { User, Building2, Shield, Calendar, Hash, Edit } from 'lucide-react';
 
 interface UserProfileProps {
   user: {
@@ -17,6 +20,10 @@ interface UserProfileProps {
     };
     createdAt: string;
   };
+  departments?: Array<{
+    id: string;
+    name: string;
+  }>;
 }
 
 const roleLabels = {
@@ -31,7 +38,59 @@ const roleColors = {
   ADMIN: 'bg-red-100 text-red-800 border-red-200',
 };
 
-export function UserProfile({ user }: UserProfileProps) {
+export function UserProfile({ user, departments }: UserProfileProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedUser, setEditedUser] = useState(user);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { webApp } = useTelegram();
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    setError(null);
+    
+    try {
+      if (!webApp) {
+        throw new Error('Telegram WebApp not initialized');
+      }
+      const initData = webApp.initData || '';
+      const response = await fetch('/api/auth/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-telegram-init-data': initData,
+        },
+        body: JSON.stringify({
+          fullName: editedUser.fullName,
+          departmentId: editedUser.department.id,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update profile');
+      }
+
+      const updatedUser = await response.json();
+      setEditedUser({
+        ...updatedUser,
+        department: {
+          id: updatedUser.department.id,
+          name: updatedUser.department.name
+        }
+      });
+      setIsEditing(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setEditedUser(user);
+    setIsEditing(false);
+    setError(null);
+  };
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -72,26 +131,90 @@ export function UserProfile({ user }: UserProfileProps) {
                 </AvatarFallback>
               </Avatar>
             </div>
-            <CardTitle className="text-2xl font-bold text-gray-900">
-              {user.fullName}
-            </CardTitle>
-            <div className="flex justify-center mt-2">
+            {isEditing ? (
+              <div className="w-full">
+                <input
+                  type="text"
+                  value={editedUser.fullName}
+                  onChange={(e) => setEditedUser({
+                    ...editedUser,
+                    fullName: e.target.value
+                  })}
+                  className="w-full p-2 border border-gray-300 rounded-md mb-4"
+                />
+                {departments && (
+                  <select
+                    value={editedUser.department.id}
+                    onChange={(e) => setEditedUser({
+                      ...editedUser,
+                      department: {
+                        ...editedUser.department,
+                        id: e.target.value,
+                        name: departments.find(d => d.id === e.target.value)?.name || ''
+                      }
+                    })}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                  >
+                    {departments.map((dept) => (
+                      <option key={dept.id} value={dept.id}>
+                        {dept.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            ) : (
+              <CardTitle className="text-2xl font-bold text-gray-900">
+                {editedUser.fullName}
+              </CardTitle>
+            )}
+            <div className="flex justify-center mt-2 space-x-2">
               <Badge className={`${roleColors[user.role]} font-medium`}>
                 <Shield className="w-3 h-3 mr-1" />
                 {roleLabels[user.role]}
               </Badge>
+              {!isEditing ? (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setIsEditing(true)}
+                >
+                  Редактировать
+                </Button>
+              ) : (
+                <>
+                  <Button 
+                    variant="default" 
+                    size="sm"
+                    onClick={handleSave}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? 'Сохранение...' : 'Сохранить'}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleCancel}
+                    disabled={isSaving}
+                  >
+                    Отмена
+                  </Button>
+                </>
+              )}
             </div>
           </CardHeader>
 
           <CardContent className="space-y-6">
-            {/* Department Info */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <div className="flex items-center mb-2">
-                <Building2 className="w-5 h-5 text-blue-500 mr-2" />
-                <span className="font-medium text-gray-700">Отдел</span>
-              </div>
-              <p className="text-gray-900 font-semibold">{user.department.name}</p>
-            </div>
+        {/* Department Info */}
+        <div className="bg-gray-50 rounded-lg p-4">
+          <div className="flex items-center mb-2">
+            <Building2 className="w-5 h-5 text-blue-500 mr-2" />
+            <span className="font-medium text-gray-700">Отдел</span>
+          </div>
+          <p className="text-gray-900 font-semibold">
+            {isEditing ? editedUser.department.name : editedUser.department.name}
+          </p>
+        </div>
 
             {/* Telegram ID */}
             <div className="bg-gray-50 rounded-lg p-4">
@@ -128,6 +251,12 @@ export function UserProfile({ user }: UserProfileProps) {
             )}
           </CardContent>
         </Card>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg">
+            {error}
+          </div>
+        )}
 
         {/* System Info Card */}
         <Card className="bg-white/90 backdrop-blur border-gray-200">
