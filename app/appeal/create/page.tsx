@@ -95,7 +95,7 @@ export default function CreateAppealPage() {
           href="/appeal"
           className="text-blue-500 hover:underline"
         >
-          &larr; Back to Appeals
+          &larr; Назад к списку
         </Link>
       </div>
 

@@ -13,15 +13,18 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const telegramData = validateTelegramData(initData, process.env.TELEGRAM_BOT_TOKEN);
+    const telegramData = await validateTelegramData(initData, process.env.TELEGRAM_BOT_TOKEN);
     
-    if (!telegramData) {
+    if (!telegramData || !telegramData.user?.id) {
+      console.error('Invalid Telegram data or missing user ID:', telegramData);
       return NextResponse.json(
         { error: 'Invalid Telegram data' },
         { status: 401 }
       );
     }
 
+    console.log('Valid Telegram data for user ID:', telegramData.user.id);
+    
     const user = await prisma.user.findUnique({
       where: {
         telegramId: telegramData.user.id.toString(),

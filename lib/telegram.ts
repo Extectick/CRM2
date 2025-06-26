@@ -1,4 +1,5 @@
-import crypto from 'crypto';
+// Using Web Crypto API for Edge compatibility
+const encoder = new TextEncoder();
 
 export interface TelegramUser {
   id: number;
@@ -21,7 +22,7 @@ export interface TelegramInitData {
 /**
  * Validates Telegram WebApp initData
  */
-export function validateTelegramData(initData: string, botToken?: string): TelegramInitData | null {
+export async function validateTelegramData(initData: string, botToken?: string): Promise<TelegramInitData | null> {
   try {
     const urlParams = new URLSearchParams(initData);
     const hash = urlParams.get('hash');
@@ -75,20 +76,53 @@ export function validateTelegramData(initData: string, botToken?: string): Teleg
       .map(([key, value]) => `${key}=${value}`)
       .join('\n');
 
-    // Create secret key
-    const secretKey = crypto
-      .createHmac('sha256', 'WebAppData')
-      .update(botToken)
-      .digest();
+    console.log('Validating with params:', params);
+    console.log('Using bot token:', botToken?.slice(0, 4) + '...');
 
-    // Generate hash
-    const calculatedHash = crypto
-      .createHmac('sha256', secretKey.toString('hex'))
-      .update(params)
-      .digest('hex');
+    // Create secret key using Telegram's algorithm:
+    // 1. Create HMAC-SHA256 of 'WebAppData' with botToken
+    const secretKey = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode('WebAppData'),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    
+    const tokenKey = await crypto.subtle.sign(
+      'HMAC',
+      secretKey,
+      encoder.encode(botToken)
+    );
 
-    if (calculatedHash !== hash) {
-      console.error('Hash validation failed');
+    // 2. Create HMAC-SHA256 of data-check-string with derived key
+    const hmacKey = await crypto.subtle.importKey(
+      'raw',
+      new Uint8Array(tokenKey),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+
+    const signature = await crypto.subtle.sign(
+      'HMAC',
+      hmacKey,
+      encoder.encode(params)
+    );
+
+    console.log('Generated signature length:', signature.byteLength);
+
+    // Convert to hex string
+    const hashArray = Array.from(new Uint8Array(signature));
+    const calculatedHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+    console.log('Calculated hash:', calculatedHex);
+    console.log('Expected hash:', hash);
+
+    if (calculatedHex !== hash) {
+      console.error('Hash validation failed - mismatch');
+      console.error('Expected:', hash);
+      console.error('Actual:', calculatedHex);
       return null;
     }
 

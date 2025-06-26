@@ -56,8 +56,9 @@ export default function Home() {
       />
     );
   }
-
+  
   return (
+    
     <div className="pb-16">
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col items-center justify-center p-4">
         <h1 className="text-3xl font-bold text-gray-900 mb-4">Добро пожаловать</h1>

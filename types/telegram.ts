@@ -22,6 +22,8 @@ export interface TelegramWebApp {
   ready: () => void;
   close: () => void;
   expand: () => void;
+  onEvent: (event: string, callback: () => void) => void;
+  offEvent: (event: string, callback: () => void) => void;
   MainButton: {
     text: string;
     color: string;

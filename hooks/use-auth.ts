@@ -41,17 +41,23 @@ export function useAuth() {
       if (response.ok) {
         const data = await response.json();
         setUser(data.user);
-        return true;
+        return { success: true, needsRegistration: false };
       } else if (response.status === 404) {
         // User not found - needs registration
-        return false;
+        return { success: false, needsRegistration: true };
       } else {
-        throw new Error('Failed to fetch user');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || 
+          response.statusText || 
+          `Failed to fetch user (status ${response.status})`
+        );
       }
     } catch (err) {
       console.error('Error fetching user:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      return false;
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch user';
+      setError(errorMessage);
+      return { success: false, needsRegistration: false, error: errorMessage };
     }
   };
 
@@ -127,10 +133,14 @@ export function useAuth() {
 
         try {
           await fetchDepartments();
-          await fetchUser();
+          const userResult = await fetchUser();
+          
+          if (!userResult.success && !userResult.needsRegistration) {
+            setError(userResult.error || 'Authentication failed');
+          }
         } catch (err) {
           console.error('Error during auth initialization:', err);
-          setError('Failed to initialize authentication');
+          setError(err instanceof Error ? err.message : 'Failed to initialize authentication');
         } finally {
           setLoading(false);
         }
