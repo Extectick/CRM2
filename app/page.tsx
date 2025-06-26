@@ -14,6 +14,7 @@ export default function Home() {
 
   if (!telegramReady) {
     return (
+      
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <LoadingSpinner size="lg" text="Инициализация Telegram WebApp..." />
       </div>
@@ -35,6 +36,15 @@ export default function Home() {
         onRetry={() => window.location.reload()}
       />
     );
+  }
+
+  if (telegramReady == null) {
+    return (
+      <ErrorMessage 
+        message={"Войдите через телеграм"}
+        onRetry={() => window.location.reload()}
+      />
+    );  
   }
 
   if (!user) {

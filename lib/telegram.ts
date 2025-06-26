@@ -83,7 +83,7 @@ export function validateTelegramData(initData: string, botToken?: string): Teleg
 
     // Generate hash
     const calculatedHash = crypto
-      .createHmac('sha256', secretKey)
+      .createHmac('sha256', secretKey.toString('hex'))
       .update(params)
       .digest('hex');
 

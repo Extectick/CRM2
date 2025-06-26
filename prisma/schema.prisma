@@ -11,17 +11,19 @@ datasource db {
 }
 
 model User {
-  id           String     @id @default(cuid())
-  telegramId   String     @unique @map("telegram_id")
-  fullName     String     @map("full_name")
-  departmentId String     @map("department_id")
-  role         UserRole   @default(USER)
-  createdAt    DateTime   @default(now()) @map("created_at")
-  updatedAt    DateTime   @updatedAt @map("updated_at")
-  
+  id           String   @id @default(cuid())
+  telegramId   String   @unique @map("telegram_id")
+  fullName     String   @map("full_name")
+  departmentId String   @map("department_id")
+  role         UserRole @default(USER)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
   // Relations
-  department   Department @relation(fields: [departmentId], references: [id])
-  
+  department      Department @relation(fields: [departmentId], references: [id])
+  appealsCreated  Appeal[]   @relation("Creator")
+  appealsExecuted Appeal[]   @relation("Executor")
+
   @@map("users")
 }
 
@@ -30,10 +32,11 @@ model Department {
   name      String   @unique
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-  
+
   // Relations
-  users     User[]
-  
+  users   User[]
+  appeals Appeal[]
+
   @@map("departments")
 }
 
@@ -41,4 +44,30 @@ enum UserRole {
   USER
   DEPARTMENT_HEAD
   ADMIN
+}
+
+model Appeal {
+  id           String       @id @default(cuid())
+  subject      String
+  description  String
+  status       AppealStatus @default(PENDING)
+  departmentId String       @map("department_id")
+  executorId   String?      @map("executor_id")
+  creatorId    String       @map("creator_id")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  department Department @relation(fields: [departmentId], references: [id])
+  executor   User?      @relation("Executor", fields: [executorId], references: [id])
+  creator    User       @relation("Creator", fields: [creatorId], references: [id])
+
+  @@map("appeals")
+}
+
+enum AppealStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
 }
