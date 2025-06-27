@@ -55,7 +55,7 @@ export default function CreateAppealPage() {
     e.preventDefault();
     
     if (!user?.id) {
-      alert('Please authenticate before creating an appeal');
+      alert('Перед созданием обращения, требуется авторизоваться');
       return;
     }
 

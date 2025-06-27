@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Appeal } from '@prisma/client';
 import Link from 'next/link';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 export default function AppealDetailPage() {
   const { id } = useParams();
@@ -27,7 +28,11 @@ export default function AppealDetailPage() {
   }, [id]);
 
   if (loading) {
-    return <div>Загрузка данных обращения...</div>;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <LoadingSpinner size="lg" text="Загрузка обращения..." />
+      </div>
+    );
   }
 
   if (!appeal) {
@@ -51,12 +56,24 @@ export default function AppealDetailPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div>
             <h2 className="text-sm font-medium text-gray-500">Статус</h2>
-            <p className="text-lg">{appeal.status}</p>
+            <p className="text-lg">{
+              appeal.status === 'PENDING' ? 'Отправлено' :
+              appeal.status === 'IN_PROGRESS' ? 'В работе' :
+              appeal.status === 'IN_CONFIRMATION' ? 'На подтверждении' :
+              appeal.status === 'COMPLETED' ? 'Завершено' :
+              appeal.status === 'REJECTED' ? 'Отклонено' :
+              appeal.status
+            }</p>
           </div>
           <div>
             <h2 className="text-sm font-medium text-gray-500">Созданно</h2>
             <p className="text-lg">{new Date(appeal.createdAt).toLocaleString()}</p>
           </div>
+        </div>
+
+        <div className="mb-6">
+          <h2 className="text-sm font-medium text-gray-500">Взял в работу</h2>
+          <p className="mt-1 text-lg whitespace-pre-line">{appeal.executorId === null ? '-' : appeal.executorId}</p>
         </div>
 
         <div className="mb-6">

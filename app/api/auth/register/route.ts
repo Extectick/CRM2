@@ -19,9 +19,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const telegramData = validateTelegramData(initData, process.env.TELEGRAM_BOT_TOKEN);
+    const telegramData = await validateTelegramData(initData, process.env.TELEGRAM_BOT_TOKEN);
     
-    if (!telegramData) {
+    if (!telegramData || !telegramData.user?.id) {
+      console.error('Invalid Telegram data or missing user ID:', telegramData);
       return NextResponse.json(
         { error: 'Invalid Telegram data' },
         { status: 401 }
@@ -43,10 +44,13 @@ export async function POST(req: NextRequest) {
 
     const { fullName, departmentId } = validation.data;
 
+    const telegramId = telegramData.user.id.toString();
+    console.log('Registering user with Telegram ID:', telegramId);
+
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
       where: {
-        telegramId: telegramData.user.id.toString(),
+        telegramId,
       },
     });
 

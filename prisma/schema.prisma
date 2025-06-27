@@ -48,6 +48,7 @@ enum UserRole {
 
 model Appeal {
   id           String       @id @default(cuid())
+  number       Int          @default(autoincrement())
   subject      String
   description  String
   status       AppealStatus @default(PENDING)
@@ -68,6 +69,7 @@ model Appeal {
 enum AppealStatus {
   PENDING
   IN_PROGRESS
+  IN_CONFIRMATION
   COMPLETED
   REJECTED
 }

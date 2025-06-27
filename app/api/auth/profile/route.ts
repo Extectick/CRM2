@@ -21,7 +21,7 @@ async function getProfile(req: NextRequest) {
       );
     }
 
-    const telegramData = validateTelegramData(initData, process.env.TELEGRAM_BOT_TOKEN);
+    const telegramData = await validateTelegramData(initData, process.env.TELEGRAM_BOT_TOKEN);
     
     if (!telegramData) {
       return NextResponse.json(
@@ -74,7 +74,7 @@ async function updateProfile(req: NextRequest) {
       );
     }
 
-    const telegramData = validateTelegramData(initData, process.env.TELEGRAM_BOT_TOKEN);
+    const telegramData = await validateTelegramData(initData, process.env.TELEGRAM_BOT_TOKEN);
     
     if (!telegramData) {
       return NextResponse.json(
