@@ -27,40 +27,40 @@ export async function middleware(request: NextRequest) {
   if (!initData) {
     // Try getting from cookies
     const cookieData = request.cookies.get('telegram_init_data')?.value;
-    console.log('Cookie initData:', cookieData ? 'found' : 'not found');
+    // console.log('Cookie initData:', cookieData ? 'found' : 'not found');
     initData = cookieData || null;
   }
 
   if (!initData) {
     // Try getting from query params
     const paramData = request.nextUrl.searchParams.get('telegram_init_data');
-    console.log('Query param initData:', paramData ? 'found' : 'not found');
+    // console.log('Query param initData:', paramData ? 'found' : 'not found');
     initData = paramData;
   }
 
   if (!initData) {
     // Try getting from sessionStorage via header
     const sessionData = request.headers.get('x-session-telegram-data');
-    console.log('SessionStorage initData:', sessionData ? 'found' : 'not found');
+    // console.log('SessionStorage initData:', sessionData ? 'found' : 'not found');
     initData = sessionData;
   }
 
   // Log all headers for debugging
-  console.log('All request headers:', Array.from(request.headers.entries()));
+  // console.log('All request headers:', Array.from(request.headers.entries()));
 
-  console.log('Middleware auth check for path:', request.nextUrl.pathname);
-  console.log('InitData sources checked - present:', !!initData);
-  console.log('All request cookies:', request.cookies.getAll());
+  // console.log('Middleware auth check for path:', request.nextUrl.pathname);
+  // console.log('InitData sources checked - present:', !!initData);
+  // console.log('All request cookies:', request.cookies.getAll());
 
   if (!initData) {
-    console.log('No initData found - redirecting to /');
+    // console.log('No initData found - redirecting to /');
     return NextResponse.redirect(new URL('/', request.url));
   }
 
   // Validate Telegram data with detailed error reporting
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   try {
-    console.log('Validating Telegram data...');
+    // console.log('Validating Telegram data...');
     const telegramData = await validateTelegramData(initData, botToken);
     
     if (!telegramData) {
@@ -68,7 +68,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/?error=auth_failed', request.url));
     }
 
-    console.log('Telegram validation successful for user:', telegramData.user.id);
+    // console.log('Telegram validation successful for user:', telegramData.user.id);
     
     // Create response with security headers and user info
     const response = NextResponse.next();

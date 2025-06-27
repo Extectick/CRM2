@@ -76,8 +76,8 @@ export async function validateTelegramData(initData: string, botToken?: string):
       .map(([key, value]) => `${key}=${value}`)
       .join('\n');
 
-    console.log('Validating with params:', params);
-    console.log('Using bot token:', botToken?.slice(0, 4) + '...');
+    // console.log('Validating with params:', params);
+    // console.log('Using bot token:', botToken?.slice(0, 4) + '...');
 
     // Create secret key using Telegram's algorithm:
     // 1. Create HMAC-SHA256 of 'WebAppData' with botToken
@@ -110,14 +110,14 @@ export async function validateTelegramData(initData: string, botToken?: string):
       encoder.encode(params)
     );
 
-    console.log('Generated signature length:', signature.byteLength);
+    // console.log('Generated signature length:', signature.byteLength);
 
     // Convert to hex string
     const hashArray = Array.from(new Uint8Array(signature));
     const calculatedHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-    console.log('Calculated hash:', calculatedHex);
-    console.log('Expected hash:', hash);
+    // console.log('Calculated hash:', calculatedHex);
+    // console.log('Expected hash:', hash);
 
     if (calculatedHex !== hash) {
       console.error('Hash validation failed - mismatch');

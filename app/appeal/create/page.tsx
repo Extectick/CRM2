@@ -112,6 +112,7 @@ export default function CreateAppealPage() {
             name="subject"
             value={formData.subject}
             onChange={handleChange}
+            placeholder='Напишите тему вашего обращения'
             required
             className="w-full px-3 py-2 border rounded-md"
           />
@@ -127,6 +128,7 @@ export default function CreateAppealPage() {
             value={formData.description}
             onChange={handleChange}
             required
+            placeholder='Напишите подробное описание проблемы'
             rows={5}
             className="w-full px-3 py-2 border rounded-md"
           />
@@ -144,7 +146,7 @@ export default function CreateAppealPage() {
             required
             className="w-full px-3 py-2 border rounded-md"
           >
-            {/* <option value="">Выбор отдела</option> */}
+            <option value="" >Выбор отдела</option>
             {departments.map(dept => (
               <option key={dept.id} value={dept.id}>
                 {dept.name}
