@@ -31,7 +31,9 @@ export async function GET() {
       clearInterval(keepAlive);
       global.sseClients.delete(this);
       try {
-        writer.close().catch(() => {});
+        if (!writer.closed) {
+          writer.close().catch(() => {});
+        }
       } catch (e) {
         console.error('Error closing SSE writer:', e);
       }
@@ -40,16 +42,14 @@ export async function GET() {
 
   global.sseClients.add(client);
 
-  // Используем forEach вместо for..of из-за target ES5
-  function sendKeepAlive() {
+  const keepAlive = setInterval(() => {
     if (!client.closed) {
-      writer.write('data: keepalive\n\n').catch(error => {
+      writer.write('data: keepalive\n\n').catch((error) => {
         console.error('Failed to send keepalive:', error);
         client.close();
       });
     }
-  }
-  const keepAlive = setInterval(sendKeepAlive, 30000);
+  }, 30000);
 
   try {
     await writer.write('data: connected\n\n');

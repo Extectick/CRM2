@@ -1,10 +1,9 @@
-
 import './globals.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { TelegramScript } from '../components/telegram-script';
 import { BottomNavigation } from '../components/ui/bottom-navigation';
-    
+
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
@@ -27,13 +26,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html suppressHydrationWarning>
+    <html lang="ru" suppressHydrationWarning>
       <head>
         <TelegramScript />
       </head>
       <body className={inter.className}>
         <div className="telegram-webapp flex flex-col min-h-screen">
-          <main className="flex-1">
+          {/* Добавлен отступ снизу, чтобы контент не перекрывался BottomNavigation */}
+          <main className="flex-1 pb-16">
             {children}
           </main>
           <BottomNavigation />

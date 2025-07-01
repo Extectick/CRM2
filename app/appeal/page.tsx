@@ -315,115 +315,129 @@ export default function AppealPage() {
     );
   }
 
-  return (
-    <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Обращения и задачи</h1>
-        <Link 
-          href="/appeal/create?returnTab=myAppeals"
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-        >
-          <FilePlus />
-        </Link>
-      </div>
+return (
+  <div className="container mx-auto p-4 pb-20">
+    <div className="flex justify-between items-center mb-6">
+      <h1 className="text-2xl font-bold text-gray-800">Обращения и задачи</h1>
+      <Link
+        href="/appeal/create?returnTab=myAppeals"
+        className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition"
+      >
+        <FilePlus className="w-5 h-5" />
+        <span className="text-sm">Новое обращение</span>
+      </Link>
+    </div>
 
-      <Tabs defaultValue={defaultTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="myAppeals">Мои обращения</TabsTrigger>
-          <TabsTrigger value="departmentTasks">Задачи отдела</TabsTrigger>
-          <TabsTrigger value="myTasks">Мои задачи</TabsTrigger>
-        </TabsList>
+    <Tabs defaultValue={defaultTab} className="w-full">
+      <TabsList className="grid w-full grid-cols-3 bg-gray-100 rounded-lg">
+        <TabsTrigger value="myAppeals">Мои обращения</TabsTrigger>
+        <TabsTrigger value="departmentTasks">Задачи отдела</TabsTrigger>
+        <TabsTrigger value="myTasks">Мои задачи</TabsTrigger>
+      </TabsList>
 
-        <TabsContent value="myAppeals">
-          <div className="space-y-4 mt-4">
-            {myAppeals.length === 0 ? (
-              <div className="p-4 border rounded text-center text-gray-500">
-                У вас пока нет обращений
-              </div>
-            ) : (
-              myAppeals.map((appeal) => (
-                <Link 
-                  key={appeal.id} 
-                  href={`/appeal/${appeal.id}`}
-                  className="block p-4 border rounded hover:bg-gray-50"
-                >
-                  <h3 className="text-xs font-sans"># {appeal.number}</h3>
-                  <h2 className="text-lg font-semibold">{appeal.subject}</h2>
-                  <p className="text-gray-600">Статус: {getStatusText(appeal.status)}</p>
-                  {appeal.executors?.length ? (
-                    <p className="text-sm text-gray-500">
-                      Исполнители: {appeal.executors.map(e => e.fullName).join(', ')}
-                    </p>
-                  ) : null}
-                </Link>
-              ))
-            )}
-          </div>
-        </TabsContent>
+      <TabsContent value="myAppeals">
+        <div className="space-y-4 mt-4">
+          {myAppeals.length === 0 ? (
+            <div className="p-4 border rounded text-center text-gray-500 bg-white shadow-sm">
+              У вас пока нет обращений
+            </div>
+          ) : (
+            myAppeals.map((appeal) => (
+              <Link
+                key={appeal.id}
+                href={`/appeal/${appeal.id}`}
+                className="block p-4 border rounded-lg bg-white hover:shadow transition"
+              >
+                <div className="flex justify-between items-center">
+                  <h3 className="text-sm text-gray-400 font-mono">#{appeal.number}</h3>
+                  <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
+                    {getStatusText(appeal.status)}
+                  </span>
+                </div>
+                <h2 className="text-lg font-semibold text-gray-800 mt-1">{appeal.subject}</h2>
+                {appeal.executors?.length ? (
+                  <p className="text-sm text-gray-500 mt-1">
+                    Исполнители: {appeal.executors.map(e => e.fullName).join(', ')}
+                  </p>
+                ) : null}
+              </Link>
+            ))
+          )}
+        </div>
+      </TabsContent>
 
-        <TabsContent value="departmentTasks">
-          <div className="space-y-4 mt-4">
-            {departmentTasks.map(task => (
-              <div key={task.id} className="p-4 border rounded">
-                <h3 className="text-lg font-medium">#{task.number} - {task.subject}</h3>
-                <p className="text-gray-600 mb-2">{task.description}</p>
-                <p className="text-sm">Статус: {getStatusText(task.status)}</p>
-                {task.status === 'PENDING' && (
+      <TabsContent value="departmentTasks">
+        <div className="space-y-4 mt-4">
+          {departmentTasks.map(task => (
+            <div key={task.id} className="p-4 border rounded-lg bg-white shadow-sm hover:shadow transition">
+              <h3 className="text-md font-semibold text-gray-800">
+                #{task.number} - {task.subject}
+              </h3>
+              <p className="text-gray-600 text-sm mt-1">{task.description}</p>
+              <p className="text-sm mt-1 text-gray-500">
+                Статус: <span className="font-medium">{getStatusText(task.status)}</span>
+              </p>
+              {task.status === 'PENDING' && (
+                <div className="mt-3 flex justify-end">
                   <button
-                    onClick={() => setConfirmDialog({
-                      open: true,
-                      taskId: task.id,
-                      taskSubject: task.subject
-                    })}
-                    className="mt-2 bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+                    onClick={() => setConfirmDialog({ open: true, taskId: task.id, taskSubject: task.subject })}
+                    className="bg-blue-500 text-white px-3 py-1.5 rounded hover:bg-blue-600 text-sm"
                   >
                     Принять задачу
                   </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </TabsContent>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </TabsContent>
 
-        <TabsContent value="myTasks">
-          <div className="space-y-4 mt-4">
-            {myTasks.map(task => (
-              <div key={task.id} className="p-4 border rounded">
-                <h3 className="text-lg font-medium">#{task.number} - {task.subject}</h3>
-                <p className="text-gray-600 mb-2">{task.description}</p>
-                <p className="text-sm">Статус: {getStatusText(task.status)}</p>
-                {task.status === 'IN_PROGRESS' && (
+      <TabsContent value="myTasks">
+        <div className="space-y-4 mt-4">
+          {myTasks.map(task => (
+            <div key={task.id} className="p-4 border rounded-lg bg-white shadow-sm hover:shadow transition">
+              <h3 className="text-md font-semibold text-gray-800">
+                #{task.number} - {task.subject}
+              </h3>
+              <p className="text-gray-600 text-sm mt-1">{task.description}</p>
+              <p className="text-sm mt-1 text-gray-500">
+                Статус: <span className="font-medium">{getStatusText(task.status)}</span>
+              </p>
+              {task.status === 'IN_PROGRESS' && (
+                <div className="mt-3 flex justify-end">
                   <button
                     onClick={() => updateTaskStatus(task.id, 'IN_CONFIRMATION')}
-                    className="mt-2 bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
+                    className="bg-green-500 text-white px-3 py-1.5 rounded hover:bg-green-600 text-sm"
                   >
-                    Отправить на подтверждение
+                    На подтверждение
                   </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </TabsContent>
-      </Tabs>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </TabsContent>
+    </Tabs>
 
-      <AlertDialog open={confirmDialog.open} onOpenChange={(open) => setConfirmDialog(prev => ({...prev, open}))}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Подтверждение</AlertDialogTitle>
-            <AlertDialogDescription>
-              Вы действительно хотите принять задачу "{confirmDialog.taskSubject}"?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={() => updateTaskStatus(confirmDialog.taskId, 'IN_PROGRESS')}
-            >
-              Принять
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
-  );
+    <AlertDialog open={confirmDialog.open} onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Подтверждение</AlertDialogTitle>
+          <AlertDialogDescription>
+            Вы действительно хотите принять задачу &quot;{confirmDialog.taskSubject}&quot;?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Отмена</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => updateTaskStatus(confirmDialog.taskId, 'IN_PROGRESS')}
+          >
+            Принять
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  </div>
+);
+
 }
