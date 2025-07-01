@@ -40,6 +40,9 @@ export function useAuth() {
 
       if (response.ok) {
         const data = await response.json();
+        if (!data.user?.department?.id) {
+          throw new Error('User department not found');
+        }
         setUser(data.user);
         return { success: true, needsRegistration: false };
       } else if (response.status === 404) {
@@ -55,7 +58,13 @@ export function useAuth() {
       }
     } catch (err) {
       console.error('Error fetching user:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch user';
+      let errorMessage = err instanceof Error ? err.message : 'Failed to fetch user';
+      
+      // Handle specific cases
+      if (errorMessage.includes('department not found')) {
+        errorMessage = 'Пользователь не привязан к отделу. Обратитесь к администратору.';
+      }
+
       setError(errorMessage);
       return { success: false, needsRegistration: false, error: errorMessage };
     }

@@ -23,6 +23,8 @@ model User {
   department      Department @relation(fields: [departmentId], references: [id])
   appealsCreated  Appeal[]   @relation("Creator")
   appealsExecuted Appeal[]   @relation("Executor")
+  appealsAssigned Appeal[]   @relation("AppealExecutors")
+  messagesSent    AppealMessage[] @relation("MessageSender")
 
   @@map("users")
 }
@@ -53,23 +55,46 @@ model Appeal {
   description  String
   status       AppealStatus @default(PENDING)
   departmentId String       @map("department_id")
-  executorId   String?      @map("executor_id")
   creatorId    String       @map("creator_id")
+  executorId   String?      @map("executor_id")
+  chatId       String?      @unique @map("chat_id")
+  lastNotifiedAt DateTime?  @map("last_notified_at")
   createdAt    DateTime     @default(now()) @map("created_at")
   updatedAt    DateTime     @updatedAt @map("updated_at")
 
   // Relations
-  department Department @relation(fields: [departmentId], references: [id])
-  executor   User?      @relation("Executor", fields: [executorId], references: [id])
-  creator    User       @relation("Creator", fields: [creatorId], references: [id])
-
+  department   Department   @relation(fields: [departmentId], references: [id])
+  creator      User         @relation("Creator", fields: [creatorId], references: [id])
+  executor     User?        @relation("Executor", fields: [executorId], references: [id])
+  executors    User[]       @relation("AppealExecutors")
+  messages     AppealMessage[]
+  
   @@map("appeals")
 }
 
+model AppealMessage {
+  id          String   @id @default(cuid())
+  appealId    String   @map("appeal_id")
+  senderId    String   @map("sender_id")
+  content     String?
+  fileUrl     String?  @map("file_url")
+  fileSize    Int?     @map("file_size")
+  fileType    String?  @map("file_type")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  appeal      Appeal    @relation(fields: [appealId], references: [id])
+  sender      User      @relation("MessageSender", fields: [senderId], references: [id])
+
+  @@map("appeal_messages")
+}
+
 enum AppealStatus {
-  PENDING
-  IN_PROGRESS
-  IN_CONFIRMATION
-  COMPLETED
-  REJECTED
+  PENDING       // Отправлено
+  IN_PROGRESS   // В работе
+  IN_REVIEW     // На проверке
+  IN_CONFIRMATION // На подтверждении
+  REJECTED      // Отклонено
+  COMPLETED     // Завершено
+  ARCHIVED      // В архиве
 }

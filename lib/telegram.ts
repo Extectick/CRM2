@@ -24,11 +24,16 @@ export interface TelegramInitData {
  */
 export async function validateTelegramData(initData: string, botToken?: string): Promise<TelegramInitData | null> {
   try {
+    if (!initData || initData.trim() === '') {
+      console.error('Empty initData provided');
+      return null;
+    }
+
     const urlParams = new URLSearchParams(initData);
     const hash = urlParams.get('hash');
     
     if (!hash) {
-      console.error('No hash provided in initData');
+      console.error('No hash provided in initData:', initData.slice(0, 100));
       return null;
     }
 
@@ -129,11 +134,17 @@ export async function validateTelegramData(initData: string, botToken?: string):
     // Parse user data
     const userParam = urlParams.get('user');
     if (!userParam) {
-      console.error('No user data provided');
+      console.error('No user data in initData');
       return null;
     }
 
-    const user = JSON.parse(userParam);
+    let user;
+    try {
+      user = JSON.parse(userParam);
+    } catch (e) {
+      console.error('Failed to parse user data:', e);
+      return null;
+    }
     const authDate = parseInt(urlParams.get('auth_date') || '0');
 
     // Check if data is not older than 24 hours

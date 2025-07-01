@@ -53,31 +53,58 @@ export default function CreateAppealPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!user?.id) {
-      alert('Перед созданием обращения, требуется авторизоваться');
+      alert('Пожалуйста, войдите через Telegram для создания обращения');
+      return;
+    }
+
+    if (!(window as any)?.Telegram?.WebApp?.initData) {
+      alert('Не удалось получить данные Telegram');
+      return;
+    }
+
+    if (!user?.department?.id) {
+      alert('Пожалуйста, укажите отдел в вашем профиле перед созданием обращения');
+      router.push('/profile');
       return;
     }
 
     setLoading(true);
 
     try {
+      const requestBody = {
+        subject: formData.subject,
+        description: formData.description,
+        departmentId: formData.departmentId,
+        executorId: formData.executorId || undefined,
+      };
+
+      console.log("Начинаем запрос...");
       const response = await fetch('/api/appeals', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-telegram-init-data': window.Telegram?.WebApp.initData || '',
         },
-        body: JSON.stringify({
-          ...formData,
-          creatorId: user?.id
-        }),
+        body: JSON.stringify(requestBody),
       });
 
-      if (response.ok) {
-        router.push('/appeal');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Ошибка при создании обращения');
       }
+
+      const params = new URLSearchParams(window.location.search);
+      const returnTab = params.get('returnTab') || '';
+      
+      console.log("Redirecting...");
+      router.push(`/appeal${returnTab ? `?returnTab=${returnTab}` : ''}`);
+      
     } catch (error) {
       console.error('Error creating appeal:', error);
+      alert(error instanceof Error ? error.message : 'Неизвестная ошибка');
     } finally {
       setLoading(false);
     }
@@ -112,7 +139,7 @@ export default function CreateAppealPage() {
             name="subject"
             value={formData.subject}
             onChange={handleChange}
-            placeholder='Напишите тему вашего обращения'
+            placeholder="Напишите тему вашего обращения"
             required
             className="w-full px-3 py-2 border rounded-md"
           />
@@ -128,7 +155,7 @@ export default function CreateAppealPage() {
             value={formData.description}
             onChange={handleChange}
             required
-            placeholder='Напишите подробное описание проблемы'
+            placeholder="Напишите подробное описание проблемы"
             rows={5}
             className="w-full px-3 py-2 border rounded-md"
           />
@@ -146,7 +173,7 @@ export default function CreateAppealPage() {
             required
             className="w-full px-3 py-2 border rounded-md"
           >
-            <option value="" >Выбор отдела</option>
+            <option value="">Выбор отдела</option>
             {departments.map(dept => (
               <option key={dept.id} value={dept.id}>
                 {dept.name}
@@ -155,19 +182,19 @@ export default function CreateAppealPage() {
           </select>
         </div>
 
+        {/* Если понадобится выбор исполнителя, раскомментируй */}
         {/* <div className="mb-4">
           <label htmlFor="executorId" className="block text-sm font-medium text-gray-700 mb-1">
-            Executor
+            Исполнитель
           </label>
           <select
             id="executorId"
             name="executorId"
             value={formData.executorId}
             onChange={handleChange}
-            required
             className="w-full px-3 py-2 border rounded-md"
           >
-            <option value="">Select Executor</option>
+            <option value="">Выбор исполнителя</option>
             {users.map(user => (
               <option key={user.id} value={user.id}>
                 {user.fullName}
@@ -179,9 +206,16 @@ export default function CreateAppealPage() {
         <button
           type="submit"
           disabled={loading}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-blue-300"
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-blue-300 flex items-center justify-center gap-2"
         >
-          {loading ? 'Создание...' : 'Создать обращение'}
+          {loading ? (
+            <>
+              <span className="animate-spin">↻</span>
+              Создание...
+            </>
+          ) : (
+            'Создать обращение'
+          )}
         </button>
       </form>
     </div>
