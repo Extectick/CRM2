@@ -10,6 +10,15 @@ declare global {
   }>;
 }
 
+// Тип для тела POST-запроса на создание обращения
+type CreateAppealBody = {
+  subject: string;
+  description: string;
+  departmentId?: string;
+  executorId?: string;
+};
+
+// SSE-рассылка события
 function broadcastSseMessage(message: any) {
   if (!global.sseClients || global.sseClients.size === 0) return;
 
@@ -23,7 +32,7 @@ function broadcastSseMessage(message: any) {
   });
 }
 
-// GET — получить обращения (с учётом параметров creator, department, executor)
+// GET — получить обращения (по параметрам: creator, department, executor)
 export async function GET(request: Request) {
   try {
     const initData = request.headers.get('x-telegram-init-data');
@@ -82,81 +91,51 @@ export async function GET(request: Request) {
 }
 
 // POST — создать обращение
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    const initData = request.headers.get('x-telegram-init-data');
-    if (!initData) {
-      return NextResponse.json({ error: 'Необходима авторизация Telegram' }, { status: 401 });
-    }
-
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    const telegramData = await validateTelegramData(initData, botToken);
-    if (!telegramData) {
-      return NextResponse.json({ error: 'Неверные данные Telegram' }, { status: 401 });
-    }
+    const initData = req.headers.get('x-telegram-init-data') || '';
+    const tgData = await validateTelegramData(initData);
+    if (!tgData) return new NextResponse('Unauthorized', { status: 401 });
 
     const user = await prisma.user.findUnique({
-      where: { telegramId: telegramData.user.id.toString() },
+      where: { telegramId: tgData.user.id.toString() },
+      include: { department: true },
     });
 
-    if (!user) {
-      return NextResponse.json({ error: 'Пользователь не найден' }, { status: 404 });
-    }
+    if (!user) return new NextResponse('User not found', { status: 404 });
 
-    const body = await request.json();
+    const body: CreateAppealBody = await req.json();
 
-    const createData: any = {
-      subject: body.subject,
-      description: body.description,
-      departmentId: body.departmentId,
-      creatorId: user.id,
-      status: 'PENDING',
-    };
+    // Запрет обычному пользователю указывать чужой отдел
+    // if (
+    //   user.role === 'USER' &&
+    //   body.departmentId &&
+    //   body.departmentId !== user.departmentId
+    // ) {
+    //   return new NextResponse('Вы не можете создавать обращения в другие отделы', { status: 403 });
+    // }
 
-    if (body.executorId) {
-      createData.executorId = body.executorId;
-    }
-
-    if (body.executors) {
-      createData.executors = {
-        connect: body.executors.map((id: string) => ({ id })),
-      };
-    }
-
-    const newAppeal = await prisma.appeal.create({
-      data: createData,
-      include: {
-        department: true,
-        creator: true,
-        executors: {
-          select: {
-            id: true,
-            fullName: true,
-          },
-        },
+    const appeal = await prisma.appeal.create({
+      data: {
+        subject: body.subject,
+        description: body.description,
+        departmentId: body.departmentId || user.departmentId,
+        creatorId: user.id,
+        executorId: body.executorId || null,
       },
     });
 
-    // Отправляем уведомление всем SSE клиентам
     broadcastSseMessage({
       type: 'appeal_change',
       operation: 'create',
-      id: newAppeal.id,
-      departmentId: newAppeal.departmentId,
-      creatorId: newAppeal.creatorId,
-      createdAt: newAppeal.createdAt.toISOString(),
-      data: {
-        subject: newAppeal.subject,
-        status: newAppeal.status,
-        number: newAppeal.number,
-        executorId: newAppeal.executorId,
-        executors: newAppeal.executors,
-      },
+      creatorId: appeal.creatorId,
+      departmentId: appeal.departmentId,
+      data: appeal,
     });
 
-    return NextResponse.json(newAppeal, { status: 201 });
+    return NextResponse.json(appeal);
   } catch (error) {
     console.error('Ошибка при создании обращения:', error);
-    return NextResponse.json({ error: 'Ошибка при создании обращения' }, { status: 500 });
+    return new NextResponse('Ошибка сервера при создании обращения', { status: 500 });
   }
 }

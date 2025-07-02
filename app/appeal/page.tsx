@@ -106,22 +106,31 @@ export default function AppealPage() {
 
     const handleSSE = () => {
       eventSource = new EventSource('/api/sse');
+
       eventSource.onmessage = (event: MessageEvent) => {
         try {
           const raw = event.data;
+
           if (!raw.startsWith('{')) return;
 
           const data = JSON.parse(raw);
+
           if (data.type === 'appeal_change') {
+            console.log('[SSE] appeal_change received:', data);
+            console.log('[SSE] User departmentId:', user?.department?.id);
+            console.log('[SSE] Data departmentId:', data.departmentId);
+
             if (data.operation === 'create') {
               if (data.creatorId === user?.id) {
-                setMyAppeals(prev => [...prev, data.data]);
+                setMyAppeals(prev => [data.data, ...prev]);
               }
-              if (data.departmentId === user?.department?.id) {
-                setDepartmentTasks(prev => [...prev, data.data]);
+
+              if (String(data.departmentId) === String(user?.department?.id)) {
+                setDepartmentTasks(prev => [data.data, ...prev]);
               }
+
               if (data.data.executorId === user?.id) {
-                setMyTasks(prev => [...prev, data.data]);
+                setMyTasks(prev => [data.data, ...prev]);
               }
             }
 
@@ -144,6 +153,12 @@ export default function AppealPage() {
         } catch (e) {
           console.error('Ошибка SSE:', e);
         }
+      };
+
+      eventSource.onerror = (err) => {
+        console.error('[SSE] Ошибка соединения', err);
+        eventSource?.close();
+        // Можно добавить повторное подключение, если нужно
       };
     };
 
@@ -261,45 +276,53 @@ export default function AppealPage() {
 
         <TabsContent value="departmentTasks">
           <div className="mt-4 space-y-4">
-            {departmentTasks.map(task => (
-              <div key={task.id} className="p-4 border rounded bg-white shadow-sm">
-                <div className="font-semibold">#{task.number} — {task.subject}</div>
-                <div className="text-sm text-gray-600 mt-1">{task.description}</div>
-                <div className="text-sm text-gray-500 mt-1">Статус: {getStatusText(task.status)}</div>
-                {task.status === 'PENDING' && (
-                  <div className="mt-2 text-right">
-                    <button
-                      onClick={() => setConfirmDialog({ open: true, taskId: task.id, taskSubject: task.subject })}
-                      className="bg-blue-500 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-600"
-                    >
-                      Принять задачу
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
+            {departmentTasks.length === 0 ? (
+              <div className="text-center text-gray-500">Нет задач в вашем отделе</div>
+            ) : (
+              departmentTasks.map(task => (
+                <div key={task.id} className="p-4 border rounded bg-white shadow-sm">
+                  <div className="font-semibold">#{task.number} — {task.subject}</div>
+                  <div className="text-sm text-gray-600 mt-1">{task.description}</div>
+                  <div className="text-sm text-gray-500 mt-1">Статус: {getStatusText(task.status)}</div>
+                  {task.status === 'PENDING' && (
+                    <div className="mt-2 text-right">
+                      <button
+                        onClick={() => setConfirmDialog({ open: true, taskId: task.id, taskSubject: task.subject })}
+                        className="bg-blue-500 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-600"
+                      >
+                        Принять задачу
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </TabsContent>
 
         <TabsContent value="myTasks">
           <div className="mt-4 space-y-4">
-            {myTasks.map(task => (
-              <div key={task.id} className="p-4 border rounded bg-white shadow-sm">
-                <div className="font-semibold">#{task.number} — {task.subject}</div>
-                <div className="text-sm text-gray-600 mt-1">{task.description}</div>
-                <div className="text-sm text-gray-500 mt-1">Статус: {getStatusText(task.status)}</div>
-                {task.status === 'IN_PROGRESS' && (
-                  <div className="mt-2 text-right">
-                    <button
-                      onClick={() => updateTaskStatus(task.id, 'IN_CONFIRMATION')}
-                      className="bg-green-500 text-white px-3 py-1.5 rounded text-sm hover:bg-green-600"
-                    >
-                      На подтверждение
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
+            {myTasks.length === 0 ? (
+              <div className="text-center text-gray-500">У вас пока нет задач</div>
+            ) : (
+              myTasks.map(task => (
+                <div key={task.id} className="p-4 border rounded bg-white shadow-sm">
+                  <div className="font-semibold">#{task.number} — {task.subject}</div>
+                  <div className="text-sm text-gray-600 mt-1">{task.description}</div>
+                  <div className="text-sm text-gray-500 mt-1">Статус: {getStatusText(task.status)}</div>
+                  {task.status === 'IN_PROGRESS' && (
+                    <div className="mt-2 text-right">
+                      <button
+                        onClick={() => updateTaskStatus(task.id, 'IN_CONFIRMATION')}
+                        className="bg-green-500 text-white px-3 py-1.5 rounded text-sm hover:bg-green-600"
+                      >
+                        На подтверждение
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </TabsContent>
       </Tabs>
