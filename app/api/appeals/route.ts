@@ -23,7 +23,7 @@ function broadcastSseMessage(message: any) {
   });
 }
 
-// GET — получить обращения (пример упрощённый)
+// GET — получить обращения (с учётом параметров creator, department, executor)
 export async function GET(request: Request) {
   try {
     const initData = request.headers.get('x-telegram-init-data');
@@ -45,8 +45,22 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Пользователь не найден' }, { status: 404 });
     }
 
+    const { searchParams } = new URL(request.url);
+    const departmentId = searchParams.get('department');
+    const executorId = searchParams.get('executor');
+
+    const where: any = {};
+
+    if (departmentId) {
+      where.departmentId = departmentId;
+    } else if (executorId) {
+      where.executorId = executorId;
+    } else {
+      where.creatorId = user.id;
+    }
+
     const appeals = await prisma.appeal.findMany({
-      where: { creatorId: user.id },
+      where,
       include: {
         department: true,
         creator: true,

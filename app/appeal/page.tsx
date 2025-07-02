@@ -50,11 +50,7 @@ export default function AppealPage() {
   const [departmentTasks, setDepartmentTasks] = useState<Appeal[]>([]);
   const [myTasks, setMyTasks] = useState<Appeal[]>([]);
   const [loading, setLoading] = useState(true);
-  const [confirmDialog, setConfirmDialog] = useState({
-    open: false,
-    taskId: '',
-    taskSubject: '',
-  });
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, taskId: '', taskSubject: '' });
   const [isAuthorized, setIsAuthorized] = useState(false);
   const { user } = useAuth();
   const [defaultTab, setDefaultTab] = useState('myAppeals');
@@ -69,210 +65,122 @@ export default function AppealPage() {
     }
   }, []);
 
-  // Общая функция загрузки данных
   const fetchAllData = async () => {
     if (!user?.id) return;
 
     try {
-      // Загрузка моих обращений
-      const appealsResponse = await fetch('/api/appeals', {
-        headers: {
-          'x-telegram-init-data': window.Telegram?.WebApp?.initData || ''
-        }
-      });
-      const appealsData = await appealsResponse.json();
-      setMyAppeals(appealsData);
+      const headers = { 'x-telegram-init-data': window.Telegram?.WebApp?.initData || '' };
 
-      // Загрузка задач отдела (если пользователь в отделе)
-      if (user?.department?.id) {
-        const deptResponse = await fetch(`/api/appeals?department=${user.department.id}`, {
-          headers: {
-            'x-telegram-init-data': window.Telegram?.WebApp?.initData || ''
-          }
-        });
-        const deptData = await deptResponse.json();
-        setDepartmentTasks(deptData);
+      // Мои обращения
+      const myRes = await fetch('/api/appeals', { headers });
+      setMyAppeals(await myRes.json());
 
-        // Загрузка моих задач
-        const myTasksResponse = await fetch(`/api/appeals?executor=${user.id}`, {
-          headers: {
-            'x-telegram-init-data': window.Telegram?.WebApp?.initData || ''
-          }
-        });
-        const myTasksData = await myTasksResponse.json();
-        setMyTasks(myTasksData);
+      // Задачи отдела
+      if (user.department?.id) {
+        const depRes = await fetch(`/api/appeals?department=${user.department.id}`, { headers });
+        setDepartmentTasks(await depRes.json());
       }
+
+      // Мои задачи
+      const execRes = await fetch(`/api/appeals?executor=${user.id}`, { headers });
+      setMyTasks(await execRes.json());
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('Ошибка загрузки данных:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Общая логика SSE
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      if (!window.Telegram?.WebApp?.initData) {
-        console.error('Telegram auth data not found');
-        setIsAuthorized(false);
-        return;
-      }
+    if (typeof window !== 'undefined' && window.Telegram?.WebApp?.initData) {
       setIsAuthorized(true);
+    } else {
+      setIsAuthorized(false);
+      return;
     }
 
-    if (!user?.id) return;
+    fetchAllData();
 
     let eventSource: EventSource | null = null;
-    let pollInterval: NodeJS.Timeout | null = null;
+    let interval: NodeJS.Timeout | null = null;
 
-    const setupSSE = () => {
+    const handleSSE = () => {
       eventSource = new EventSource('/api/sse');
-      
       eventSource.onmessage = (event: MessageEvent) => {
         try {
-          if (typeof event.data !== 'string') return;
-          if (!event.data.startsWith('data: ')) return;
-          
-          const message = event.data.substring(6).trim();
-          if (!message || message === 'keepalive' || message === 'connected') return;
-          if (!message.startsWith('{') || !message.endsWith('}')) return;
-          
-          const data = JSON.parse(message);
-          
-          if (data?.type === 'appeal_change') {
-            // Обновление моих обращений
-            if (data.operation === 'create' && data.creatorId === user?.id) {
-              setMyAppeals(prev => [...prev, {
-                id: data.id,
-                number: data.data.number,
-                subject: data.data.subject,
-                description: data.data.description || '',
-                status: data.data.status,
-                departmentId: data.departmentId,
-                creatorId: data.creatorId,
-                executorId: data.data.executorId || null,
-                chatId: data.data.chatId || null,
-                lastNotifiedAt: data.data.lastNotifiedAt ? new Date(data.data.lastNotifiedAt) : null,
-                createdAt: new Date(data.createdAt),
-                updatedAt: new Date(data.updatedAt || data.createdAt),
-                executors: data.data.executors || []
-              }]);
-            }
-            
-            // Обновление задач отдела
-            if (user?.department?.id && data.departmentId === user.department.id) {
-              setDepartmentTasks(prev => {
-                if (data.operation === 'create') {
-                  return [...prev, {
-                    id: data.id,
-                    number: data.data.number,
-                    subject: data.data.subject,
-                    description: data.data.description || '',
-                    status: data.data.status,
-                    departmentId: data.departmentId,
-                    creatorId: data.creatorId,
-                    executorId: data.data.executorId || null,
-                    chatId: data.data.chatId || null,
-                    lastNotifiedAt: data.data.lastNotifiedAt ? new Date(data.data.lastNotifiedAt) : null,
-                    createdAt: new Date(data.createdAt),
-                    updatedAt: new Date(data.updatedAt || data.createdAt)
-                  }];
-                }
-                return prev.map(task => 
-                  task.id === data.id ? { 
-                    ...task, 
-                    status: data.data.status,
-                    executorId: data.data.executorId,
-                    subject: data.data.subject,
-                    number: data.data.number
-                  } : task
-                );
-              });
-            }
-            
-            // Обновление моих задач
-            setMyTasks(prev => {
-              if (data.operation === 'delete') {
-                return prev.filter(task => task.id !== data.id);
+          const raw = event.data;
+          if (!raw.startsWith('{')) return;
+
+          const data = JSON.parse(raw);
+          if (data.type === 'appeal_change') {
+            if (data.operation === 'create') {
+              if (data.creatorId === user?.id) {
+                setMyAppeals(prev => [...prev, data.data]);
               }
-              if (data.operation === 'update') {
-                if (data.data.status === 'COMPLETED' || data.data.status === 'REJECTED') {
-                  return prev.filter(task => task.id !== data.id);
-                }
-                if (data.data.executorId === user?.id) {
-                  const existing = prev.find(t => t.id === data.id);
-                  if (existing) {
-                    return prev.map(task => 
-                      task.id === data.id ? {
-                        ...task,
-                        status: data.data.status,
-                        executorId: data.data.executorId,
-                        subject: data.data.subject,
-                        number: data.data.number
-                      } : task
-                    );
-                  }
-                  return [...prev, {
-                    id: data.id,
-                    number: data.data.number,
-                    subject: data.data.subject,
-                    description: data.data.description || '',
-                    status: data.data.status,
-                    departmentId: data.departmentId,
-                    creatorId: data.creatorId,
-                    executorId: data.data.executorId || null,
-                    chatId: data.data.chatId || null,
-                    lastNotifiedAt: data.data.lastNotifiedAt ? new Date(data.data.lastNotifiedAt) : null,
-                    createdAt: new Date(data.createdAt),
-                    updatedAt: new Date(data.updatedAt || data.createdAt)
-                  }];
-                }
-                return prev.filter(task => task.id !== data.id);
+              if (data.departmentId === user?.department?.id) {
+                setDepartmentTasks(prev => [...prev, data.data]);
               }
-              return prev;
-            });
+              if (data.data.executorId === user?.id) {
+                setMyTasks(prev => [...prev, data.data]);
+              }
+            }
+
+            if (data.operation === 'update') {
+              const updated = (list: Appeal[]) =>
+                list.map(task => task.id === data.id ? { ...task, ...data.data } : task);
+
+              setMyAppeals(prev => updated(prev));
+              setDepartmentTasks(prev => updated(prev));
+              setMyTasks(prev => updated(prev));
+            }
+
+            if (data.operation === 'delete') {
+              const filtered = (list: Appeal[]) => list.filter(task => task.id !== data.id);
+              setMyAppeals(prev => filtered(prev));
+              setDepartmentTasks(prev => filtered(prev));
+              setMyTasks(prev => filtered(prev));
+            }
           }
-        } catch (error) {
-          console.error('Error processing SSE event:', error);
+        } catch (e) {
+          console.error('Ошибка SSE:', e);
         }
       };
     };
 
-    fetchAllData();
     if (window.EventSource) {
-      setupSSE();
+      handleSSE();
     } else {
-      pollInterval = setInterval(fetchAllData, 30000);
+      interval = setInterval(fetchAllData, 30000);
     }
 
     return () => {
-      if (eventSource) eventSource.close();
-      if (pollInterval) clearInterval(pollInterval);
+      eventSource?.close();
+      if (interval) clearInterval(interval);
     };
   }, [user]);
 
   const updateTaskStatus = async (taskId: string, status: 'IN_PROGRESS' | 'IN_CONFIRMATION' | 'COMPLETED' | 'REJECTED') => {
     try {
+      const target = departmentTasks.find(t => t.id === taskId) || myTasks.find(t => t.id === taskId);
+      if (!target) return;
+
       const updatedTask = {
-        ...departmentTasks.find(t => t.id === taskId) || myTasks.find(t => t.id === taskId),
+        ...target,
         status,
-        ...(status === 'IN_PROGRESS' ? { executorId: user?.id } : {}),
-        ...(status === 'REJECTED' ? { executorId: null } : {})
-      } as Appeal;
+        executorId:
+          status === 'IN_PROGRESS'
+            ? user?.id ?? null
+            : status === 'REJECTED'
+              ? null
+              : target.executorId ?? null,
+      };
 
-      setDepartmentTasks(prev => 
-        prev.map(task => task.id === taskId ? updatedTask : task)
+      setDepartmentTasks(prev => prev.map(t => t.id === taskId ? updatedTask : t));
+      setMyTasks(prev =>
+        status === 'COMPLETED' || status === 'REJECTED'
+          ? prev.filter(t => t.id !== taskId)
+          : [...prev.filter(t => t.id !== taskId), updatedTask]
       );
-
-      if (status === 'COMPLETED' || status === 'REJECTED') {
-        setMyTasks(prev => prev.filter(task => task.id !== taskId));
-      } else if (status === 'IN_PROGRESS') {
-        setMyTasks(prev => [...prev, updatedTask]);
-      } else {
-        setMyTasks(prev => 
-          prev.map(task => task.id === taskId ? updatedTask : task)
-        );
-      }
 
       await fetch(`/api/appeals/${taskId}`, {
         method: 'PATCH',
@@ -280,27 +188,21 @@ export default function AppealPage() {
           'Content-Type': 'application/json',
           'x-telegram-init-data': window.Telegram?.WebApp?.initData || ''
         },
-        body: JSON.stringify({ 
-          status: status,
-          userId: user?.id
-        })
+        body: JSON.stringify({ status, userId: user?.id })
       });
     } catch (error) {
-      console.error('Error updating task status:', error);
+      console.error('Ошибка изменения статуса:', error);
     }
   };
 
   if (!isAuthorized && !loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center p-6 bg-white rounded-lg shadow">
-          <h2 className="text-xl font-bold mb-4">Требуется авторизация</h2>
-          <p className="mb-4">Пожалуйста, войдите через Telegram</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-          >
-            Обновить страницу
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="bg-white shadow p-6 rounded">
+          <h2 className="text-lg font-semibold mb-2">Требуется авторизация</h2>
+          <p className="text-sm mb-4">Пожалуйста, войдите через Telegram</p>
+          <button onClick={() => window.location.reload()} className="bg-blue-500 text-white px-4 py-2 rounded">
+            Обновить
           </button>
         </div>
       </div>
@@ -309,135 +211,115 @@ export default function AppealPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="lg" text="Загрузка данных..." />
       </div>
     );
   }
 
-return (
-  <div className="container mx-auto p-4 pb-20">
-    <div className="flex justify-between items-center mb-6">
-      <h1 className="text-2xl font-bold text-gray-800">Обращения и задачи</h1>
-      <Link
-        href="/appeal/create?returnTab=myAppeals"
-        className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition"
-      >
-        <FilePlus className="w-5 h-5" />
-        <span className="text-sm">Новое обращение</span>
-      </Link>
+  return (
+    <div className="container mx-auto p-4 pb-20">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Обращения и задачи</h1>
+        <Link
+          href="/appeal/create?returnTab=myAppeals"
+          className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+        >
+          <FilePlus size={18} />
+          <span>Новое обращение</span>
+        </Link>
+      </div>
+
+      <Tabs defaultValue={defaultTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="myAppeals">Мои обращения</TabsTrigger>
+          <TabsTrigger value="departmentTasks">Задачи отдела</TabsTrigger>
+          <TabsTrigger value="myTasks">Мои задачи</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="myAppeals">
+          <div className="mt-4 space-y-4">
+            {myAppeals.length === 0 ? (
+              <div className="text-center text-gray-500">У вас пока нет обращений</div>
+            ) : (
+              myAppeals.map(appeal => (
+                <Link
+                  key={appeal.id}
+                  href={`/appeal/${appeal.id}`}
+                  className="block p-4 border rounded hover:shadow bg-white"
+                >
+                  <div className="flex justify-between text-sm text-gray-500 mb-1">
+                    <span>#{appeal.number}</span>
+                    <span>{getStatusText(appeal.status)}</span>
+                  </div>
+                  <div className="text-lg font-semibold text-gray-800">{appeal.subject}</div>
+                </Link>
+              ))
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="departmentTasks">
+          <div className="mt-4 space-y-4">
+            {departmentTasks.map(task => (
+              <div key={task.id} className="p-4 border rounded bg-white shadow-sm">
+                <div className="font-semibold">#{task.number} — {task.subject}</div>
+                <div className="text-sm text-gray-600 mt-1">{task.description}</div>
+                <div className="text-sm text-gray-500 mt-1">Статус: {getStatusText(task.status)}</div>
+                {task.status === 'PENDING' && (
+                  <div className="mt-2 text-right">
+                    <button
+                      onClick={() => setConfirmDialog({ open: true, taskId: task.id, taskSubject: task.subject })}
+                      className="bg-blue-500 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-600"
+                    >
+                      Принять задачу
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="myTasks">
+          <div className="mt-4 space-y-4">
+            {myTasks.map(task => (
+              <div key={task.id} className="p-4 border rounded bg-white shadow-sm">
+                <div className="font-semibold">#{task.number} — {task.subject}</div>
+                <div className="text-sm text-gray-600 mt-1">{task.description}</div>
+                <div className="text-sm text-gray-500 mt-1">Статус: {getStatusText(task.status)}</div>
+                {task.status === 'IN_PROGRESS' && (
+                  <div className="mt-2 text-right">
+                    <button
+                      onClick={() => updateTaskStatus(task.id, 'IN_CONFIRMATION')}
+                      className="bg-green-500 text-white px-3 py-1.5 rounded text-sm hover:bg-green-600"
+                    >
+                      На подтверждение
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      <AlertDialog open={confirmDialog.open} onOpenChange={open => setConfirmDialog(prev => ({ ...prev, open }))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Принять задачу</AlertDialogTitle>
+            <AlertDialogDescription>
+              Вы действительно хотите принять задачу &quot;{confirmDialog.taskSubject}&quot;?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={() => updateTaskStatus(confirmDialog.taskId, 'IN_PROGRESS')}>
+              Принять
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
-
-    <Tabs defaultValue={defaultTab} className="w-full">
-      <TabsList className="grid w-full grid-cols-3 bg-gray-100 rounded-lg">
-        <TabsTrigger value="myAppeals">Мои обращения</TabsTrigger>
-        <TabsTrigger value="departmentTasks">Задачи отдела</TabsTrigger>
-        <TabsTrigger value="myTasks">Мои задачи</TabsTrigger>
-      </TabsList>
-
-      <TabsContent value="myAppeals">
-        <div className="space-y-4 mt-4">
-          {myAppeals.length === 0 ? (
-            <div className="p-4 border rounded text-center text-gray-500 bg-white shadow-sm">
-              У вас пока нет обращений
-            </div>
-          ) : (
-            myAppeals.map((appeal) => (
-              <Link
-                key={appeal.id}
-                href={`/appeal/${appeal.id}`}
-                className="block p-4 border rounded-lg bg-white hover:shadow transition"
-              >
-                <div className="flex justify-between items-center">
-                  <h3 className="text-sm text-gray-400 font-mono">#{appeal.number}</h3>
-                  <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
-                    {getStatusText(appeal.status)}
-                  </span>
-                </div>
-                <h2 className="text-lg font-semibold text-gray-800 mt-1">{appeal.subject}</h2>
-                {appeal.executors?.length ? (
-                  <p className="text-sm text-gray-500 mt-1">
-                    Исполнители: {appeal.executors.map(e => e.fullName).join(', ')}
-                  </p>
-                ) : null}
-              </Link>
-            ))
-          )}
-        </div>
-      </TabsContent>
-
-      <TabsContent value="departmentTasks">
-        <div className="space-y-4 mt-4">
-          {departmentTasks.map(task => (
-            <div key={task.id} className="p-4 border rounded-lg bg-white shadow-sm hover:shadow transition">
-              <h3 className="text-md font-semibold text-gray-800">
-                #{task.number} - {task.subject}
-              </h3>
-              <p className="text-gray-600 text-sm mt-1">{task.description}</p>
-              <p className="text-sm mt-1 text-gray-500">
-                Статус: <span className="font-medium">{getStatusText(task.status)}</span>
-              </p>
-              {task.status === 'PENDING' && (
-                <div className="mt-3 flex justify-end">
-                  <button
-                    onClick={() => setConfirmDialog({ open: true, taskId: task.id, taskSubject: task.subject })}
-                    className="bg-blue-500 text-white px-3 py-1.5 rounded hover:bg-blue-600 text-sm"
-                  >
-                    Принять задачу
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </TabsContent>
-
-      <TabsContent value="myTasks">
-        <div className="space-y-4 mt-4">
-          {myTasks.map(task => (
-            <div key={task.id} className="p-4 border rounded-lg bg-white shadow-sm hover:shadow transition">
-              <h3 className="text-md font-semibold text-gray-800">
-                #{task.number} - {task.subject}
-              </h3>
-              <p className="text-gray-600 text-sm mt-1">{task.description}</p>
-              <p className="text-sm mt-1 text-gray-500">
-                Статус: <span className="font-medium">{getStatusText(task.status)}</span>
-              </p>
-              {task.status === 'IN_PROGRESS' && (
-                <div className="mt-3 flex justify-end">
-                  <button
-                    onClick={() => updateTaskStatus(task.id, 'IN_CONFIRMATION')}
-                    className="bg-green-500 text-white px-3 py-1.5 rounded hover:bg-green-600 text-sm"
-                  >
-                    На подтверждение
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </TabsContent>
-    </Tabs>
-
-    <AlertDialog open={confirmDialog.open} onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Подтверждение</AlertDialogTitle>
-          <AlertDialogDescription>
-            Вы действительно хотите принять задачу &quot;{confirmDialog.taskSubject}&quot;?
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Отмена</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={() => updateTaskStatus(confirmDialog.taskId, 'IN_PROGRESS')}
-          >
-            Принять
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  </div>
-);
-
+  );
 }
