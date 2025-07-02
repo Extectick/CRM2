@@ -18,15 +18,19 @@ type CreateAppealBody = {
   executorId?: string;
 };
 
-// SSE-рассылка события
+ // SSE-рассылка события
 function broadcastSseMessage(message: any) {
-  if (!global.sseClients || global.sseClients.size === 0) return;
+  if (!global.sseClients || global.sseClients.size === 0) {
+    console.log('[SSE] Нет подключенных клиентов для рассылки события');
+    return;
+  }
 
+  console.log(`[SSE] Отправка события ${message.type} (${message.operation}) для ${global.sseClients.size} клиентов`);
   const messageStr = `data: ${JSON.stringify(message)}\n\n`;
 
   global.sseClients.forEach(client => {
     client.writer.write(messageStr).catch(error => {
-      console.error('SSE write error:', error);
+      console.error('[SSE] Ошибка записи для клиента:', error);
       client.close();
     });
   });

@@ -93,8 +93,10 @@ export default function AppealPage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.Telegram?.WebApp?.initData) {
+      console.log('[AUTH] Telegram WebApp initData присутствует. Авторизация успешна.');
       setIsAuthorized(true);
     } else {
+      console.log('[AUTH] Telegram WebApp initData отсутствует. Авторизация не выполнена.');
       setIsAuthorized(false);
       return;
     }
@@ -103,74 +105,124 @@ export default function AppealPage() {
 
     let eventSource: EventSource | null = null;
     let interval: NodeJS.Timeout | null = null;
+    let checkConnectionStatus: NodeJS.Timeout | null = null;
 
     const handleSSE = () => {
-      eventSource = new EventSource('/api/sse');
+      console.log('[SSE] Вход в функцию handleSSE...');
+      try {
+        console.log('[SSE] Попытка создания объекта EventSource...');
+        eventSource = new EventSource('/api/sse');
+        console.log('[SSE] Объект EventSource успешно создан.');
 
-      eventSource.onmessage = (event: MessageEvent) => {
-        try {
-          const raw = event.data;
+        eventSource.onopen = () => {
+          console.log('[SSE] Соединение с сервером успешно установлено.');
+        };
 
-          if (!raw.startsWith('{')) return;
-
-          const data = JSON.parse(raw);
-
-          if (data.type === 'appeal_change') {
-            console.log('[SSE] appeal_change received:', data);
-            console.log('[SSE] User departmentId:', user?.department?.id);
-            console.log('[SSE] Data departmentId:', data.departmentId);
-
-            if (data.operation === 'create') {
-              if (data.creatorId === user?.id) {
-                setMyAppeals(prev => [data.data, ...prev]);
+        // Проверка статуса соединения через интервал
+        checkConnectionStatus = setInterval(() => {
+          if (eventSource) {
+            console.log('[SSE] Статус соединения:', eventSource.readyState);
+            if (eventSource.readyState === EventSource.CLOSED) {
+              console.log('[SSE] Соединение закрыто. Пытаемся повторно подключиться...');
+              if (checkConnectionStatus) {
+                clearInterval(checkConnectionStatus);
+                checkConnectionStatus = null;
               }
-
-              if (String(data.departmentId) === String(user?.department?.id)) {
-                setDepartmentTasks(prev => [data.data, ...prev]);
-              }
-
-              if (data.data.executorId === user?.id) {
-                setMyTasks(prev => [data.data, ...prev]);
-              }
-            }
-
-            if (data.operation === 'update') {
-              const updated = (list: Appeal[]) =>
-                list.map(task => task.id === data.id ? { ...task, ...data.data } : task);
-
-              setMyAppeals(prev => updated(prev));
-              setDepartmentTasks(prev => updated(prev));
-              setMyTasks(prev => updated(prev));
-            }
-
-            if (data.operation === 'delete') {
-              const filtered = (list: Appeal[]) => list.filter(task => task.id !== data.id);
-              setMyAppeals(prev => filtered(prev));
-              setDepartmentTasks(prev => filtered(prev));
-              setMyTasks(prev => filtered(prev));
+              handleSSE();
             }
           }
-        } catch (e) {
-          console.error('Ошибка SSE:', e);
-        }
-      };
+        }, 10000);
 
-      eventSource.onerror = (err) => {
-        console.error('[SSE] Ошибка соединения', err);
-        eventSource?.close();
-        // Можно добавить повторное подключение, если нужно
-      };
+        eventSource.onmessage = (event: MessageEvent) => {
+          console.log('[SSE] Получено сообщение от сервера:', event.data);
+          try {
+            const raw = event.data;
+
+            if (!raw.startsWith('{')) return;
+
+            const data = JSON.parse(raw);
+
+            if (data.type === 'appeal_change') {
+              console.log('[SSE] Получено событие appeal_change:', data);
+              console.log('[SSE] ID отдела пользователя:', user?.department?.id, 'Тип:', typeof user?.department?.id);
+              console.log('[SSE] ID отдела из данных:', data.departmentId, 'Тип:', typeof data.departmentId);
+
+              if (data.operation === 'create') {
+                console.log('[SSE] Операция создания обращения. Проверка условий...');
+                if (data.creatorId === user?.id) {
+                  console.log('[SSE] Обращение создано текущим пользователем. Добавлено в "Мои обращения".');
+                  setMyAppeals(prev => [data.data, ...prev]);
+                } else {
+                  console.log('[SSE] Обращение не создано текущим пользователем. Пропущено для "Мои обращения".');
+                }
+
+                if (String(data.departmentId) === String(user?.department?.id)) {
+                  console.log('[SSE] Обращение для отдела пользователя. Добавлено в "Задачи отдела".');
+                  setDepartmentTasks(prev => [data.data, ...prev]);
+                } else {
+                  console.log('[SSE] Обращение не для отдела пользователя. Пропущено для "Задачи отдела".');
+                }
+
+                if (data.data.executorId === user?.id) {
+                  console.log('[SSE] Обращение назначено пользователю. Добавлено в "Мои задачи".');
+                  setMyTasks(prev => [data.data, ...prev]);
+                } else {
+                  console.log('[SSE] Обращение не назначено пользователю. Пропущено для "Мои задачи".');
+                }
+              }
+
+              if (data.operation === 'update') {
+                const updated = (list: Appeal[]) =>
+                  list.map(task => task.id === data.id ? { ...task, ...data.data } : task);
+
+                setMyAppeals(prev => updated(prev));
+                setDepartmentTasks(prev => updated(prev));
+                setMyTasks(prev => updated(prev));
+              }
+
+              if (data.operation === 'delete') {
+                const filtered = (list: Appeal[]) => list.filter(task => task.id !== data.id);
+                setMyAppeals(prev => filtered(prev));
+                setDepartmentTasks(prev => filtered(prev));
+                setMyTasks(prev => filtered(prev));
+              }
+            }
+          } catch (e) {
+            console.error('[SSE] Ошибка обработки сообщения:', e);
+          }
+        };
+
+        eventSource.onerror = (err) => {
+          console.error('[SSE] Ошибка соединения с сервером:', err);
+          eventSource?.close();
+          console.log('[SSE] Соединение закрыто из-за ошибки. Пытаемся повторно подключиться через 5 секунд...');
+          setTimeout(() => {
+            console.log('[SSE] Повторное подключение к серверу...');
+            handleSSE();
+          }, 5000);
+        };
+      } catch (error) {
+        console.error('[SSE] Ошибка в функции handleSSE:', error);
+      }
     };
 
     if (window.EventSource) {
+      console.log('[SSE] EventSource поддерживается. Вызываем handleSSE...');
       handleSSE();
     } else {
+      console.log('[SSE] EventSource не поддерживается. Используем интервал для обновления данных.');
       interval = setInterval(fetchAllData, 30000);
     }
+    console.log('[SSE] Добавляем дополнительный интервал для проверки данных каждые 30 секунд как резервный механизм...');
+    interval = setInterval(fetchAllData, 30000);
 
     return () => {
       eventSource?.close();
       if (interval) clearInterval(interval);
+      if (checkConnectionStatus) {
+        clearInterval(checkConnectionStatus);
+        checkConnectionStatus = null;
+      }
     };
   }, [user]);
 
@@ -332,7 +384,7 @@ export default function AppealPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Принять задачу</AlertDialogTitle>
             <AlertDialogDescription>
-              Вы действительно хотите принять задачу &quot;{confirmDialog.taskSubject}&quot;?
+              Вы действительно хотите принять задачу "{confirmDialog.taskSubject}"?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

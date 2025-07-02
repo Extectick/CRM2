@@ -21,7 +21,7 @@ async function broadcastAppealChange(data: any) {
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
     const initData = request.headers.get('x-telegram-init-data');
@@ -31,7 +31,8 @@ export async function PATCH(
       return NextResponse.json({ error: 'Неверные данные Telegram' }, { status: 401 });
     }
 
-    const { id } = params;
+    const url = new URL(request.url);
+    const id = url.pathname.split('/').pop() || '';
     const body = await request.json();
 
     const user = await prisma.user.findUnique({
@@ -94,7 +95,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
     const initData = request.headers.get('x-telegram-init-data');
@@ -104,7 +105,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Неверные данные Telegram' }, { status: 401 });
     }
 
-    const { id } = params;
+    const url = new URL(request.url);
+    const id = url.pathname.split('/').pop() || '';
 
     const appeal = await prisma.appeal.findUnique({
       where: { id },
@@ -140,10 +142,12 @@ export async function DELETE(
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
+    // Извлекаем id из URL вручную для совместимости
+    const url = new URL(request.url);
+    const id = url.pathname.split('/').pop() || '';
 
     const appeal = await prisma.appeal.findUnique({
       where: { id },
