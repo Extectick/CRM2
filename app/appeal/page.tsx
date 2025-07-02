@@ -171,14 +171,13 @@ export default function AppealPage() {
       }
     };
 
-    if (window.EventSource) {
-      handleSSE();
-    } else {
-      intervalId = setInterval(fetchAllData, 30000);
-    }
-    // Резервное обновление каждые 30 секунд
-    intervalId = setInterval(fetchAllData, 30000);
-
+    // if (typeof EventSource !== 'undefined') {
+    //   handleSSE();
+    // } else {
+    //   intervalId = setInterval(fetchAllData, 3000);
+    // }
+    intervalId = setInterval(fetchAllData, 10000);
+    
     return () => {
       eventSource?.close();
       if (intervalId) clearInterval(intervalId);
@@ -209,12 +208,6 @@ export default function AppealPage() {
             : target.executorId ?? null,
       };
 
-      setDepartmentTasks(prev => prev.map(t => (t.id === taskId ? updatedTask : t)));
-      setMyTasks(prev =>
-        status === 'COMPLETED' || status === 'REJECTED'
-          ? prev.map(t => (t.id === taskId ? { ...t, isClosing: true } : t))
-          : [...prev.filter(t => t.id !== taskId), updatedTask]
-      );
       setMyAppeals(prev =>
         status === 'COMPLETED' || status === 'REJECTED'
           ? prev.map(a => (a.id === taskId ? { ...a, isClosing: true } : a))
@@ -222,7 +215,6 @@ export default function AppealPage() {
       );
 
       setTimeout(() => {
-        setMyTasks(prev => (status === 'COMPLETED' || status === 'REJECTED' ? prev.filter(t => t.id !== taskId) : prev));
         setMyAppeals(prev => (status === 'COMPLETED' || status === 'REJECTED' ? prev.filter(a => a.id !== taskId) : prev));
       }, 500);
 
@@ -264,7 +256,7 @@ export default function AppealPage() {
   return (
     <div className="container mx-auto p-4 pb-20">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Обращения и задачи</h1>
+        <h1 className="text-2xl font-bold">Мои обращения</h1>
         <Link
           href="/appeal/create?returnTab=myAppeals"
           className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
@@ -274,251 +266,83 @@ export default function AppealPage() {
         </Link>
       </div>
 
-      <Tabs defaultValue={defaultTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="myAppeals">Мои обращения</TabsTrigger>
-          <TabsTrigger value="departmentTasks">Задачи отдела</TabsTrigger>
-          <TabsTrigger value="myTasks">Мои задачи</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="myAppeals">
-          <div className="mt-4 space-y-4">
-            {myAppeals.length === 0 ? (
-              <div className="text-center text-gray-500">У вас пока нет обращений</div>
-            ) : (
-              [
-                ...myAppeals.filter(a => a.status !== 'COMPLETED' && a.status !== 'REJECTED'),
-                ...myAppeals.filter(a => a.status === 'COMPLETED' || a.status === 'REJECTED'),
-              ].map(appeal => {
-                return (
-                  <div
-                    key={appeal.id}
-                    className={`p-4 border rounded bg-white shadow-sm relative transition-all duration-500 ease-in-out ${
-                      appeal.updated ? 'animate-pulse bg-yellow-50' : ''
-                    } ${appeal.isClosing ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}
-                    onAnimationEnd={e => {
-                      if (e.animationName.includes('pulse')) {
-                        setMyAppeals(prev => prev.map(a => (a.id === appeal.id ? { ...a, updated: false } : a)));
-                      }
-                    }}
-                  >
-                    <div className="flex justify-between items-center mb-1">
-                      <Link href={`/appeal/${appeal.id}`} className="flex-1">
-                        <div className="flex justify-between text-sm mb-1 items-center">
-                          <span className="text-gray-500">#{appeal.number}</span>
-                          <div className="flex items-center h-[18px] gap-2">
-                            <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(appeal.status)}`}>
-                              {getStatusText(appeal.status)}
-                            </span>
-                            {appeal.status !== 'COMPLETED' && appeal.status !== 'REJECTED' && (
-                              <button
-                                onClick={e => {
-                                  e.stopPropagation();
-                                  e.preventDefault();
-                                  setConfirmDialog({ open: true, taskId: appeal.id, taskSubject: appeal.subject, type: 'close' });
-                                }}
-                                className="w-5 h-5 flex items-center justify-center bg-red-500 text-white rounded-full hover:bg-red-600 transition-transform transform hover:scale-110 text-sm"
-                                title="Закрыть обращение"
-                              >
-                                ✕
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                        <div className="text-lg font-semibold text-gray-800">{appeal.subject}</div>
-                        <div className="text-sm text-gray-600 mt-1 flex flex-wrap gap-2">
-                          {appeal.department?.name && (
-                            <span>
-                              Отдел: 
-                              <span className="px-2 py-1 rounded-full text-xs bg-indigo-100 text-indigo-800">
-                                {appeal.department.name}
-                              </span>
-                            </span>
-                          )}
-                          {appeal.executors?.length ? (
-                            <span>
-                              Исполнители:
-                              <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
-                                {appeal.executors.map(e => e.fullName).filter(Boolean).join(', ')}
-                              </span> 
-                            </span>
-                          ) : null}
-                          {appeal.executor?.fullName && (
-                            <span>
-                              Исполнитель: 
-                              <span className="px-2 py-1 rounded-full text-xs bg-teal-100 text-teal-800">
-                                {appeal.executor.fullName}
-                              </span>
-                            </span>
-                          )}
-                        </div>
-                      </Link>
+      <div className="mt-6 space-y-4">
+        {myAppeals.length === 0 ? (
+          <div className="text-center text-gray-500">У вас пока нет обращений</div>
+        ) : (
+          [
+            ...myAppeals.filter(a => a.status !== 'COMPLETED' && a.status !== 'REJECTED'),
+            ...myAppeals.filter(a => a.status === 'COMPLETED' || a.status === 'REJECTED'),
+          ].map(appeal => {
+            return (
+              <div
+                key={appeal.id}
+                className={`p-4 border rounded bg-white shadow-sm relative transition-all duration-500 ease-in-out ${
+                  appeal.updated ? 'animate-pulse bg-yellow-50' : ''
+                } ${appeal.isClosing ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}
+                onAnimationEnd={e => {
+                  if (e.animationName.includes('pulse')) {
+                    setMyAppeals(prev => prev.map(a => (a.id === appeal.id ? { ...a, updated: false } : a)));
+                  }
+                }}
+              >
+                <div className="flex justify-between items-center mb-1">
+                  <Link href={`/appeal/${appeal.id}`} className="flex-1">
+                    <div className="flex justify-between text-sm mb-1 items-center">
+                      <span className="text-gray-500">#{appeal.number}</span>
+                      <div className="flex items-center h-[18px] gap-2">
+                        <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(appeal.status)}`}>
+                          {getStatusText(appeal.status)}
+                        </span>
+                        {appeal.status !== 'COMPLETED' && appeal.status !== 'REJECTED' && (
+                          <button
+                            onClick={e => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              setConfirmDialog({ open: true, taskId: appeal.id, taskSubject: appeal.subject, type: 'close' });
+                            }}
+                            className="w-5 h-5 flex items-center justify-center bg-red-500 text-white rounded-full hover:bg-red-600 transition-transform transform hover:scale-110 text-sm"
+                            title="Закрыть обращение"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="departmentTasks">
-          <div className="mt-4 space-y-4">
-            {departmentTasks.length === 0 ? (
-              <div className="text-center text-gray-500">Нет задач в вашем отделе</div>
-            ) : (
-              departmentTasks.map(task => (
-                <div
-                  key={task.id}
-                  className={`p-4 border rounded bg-white shadow-sm transition-all duration-500 ease-in-out ${
-                    task.updated ? 'animate-pulse bg-yellow-50' : ''
-                  } ${task.isClosing ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}
-                  onAnimationEnd={e => {
-                    if (e.animationName.includes('pulse')) {
-                      setDepartmentTasks(prev => prev.map(t => (t.id === task.id ? { ...t, updated: false } : t)));
-                    }
-                  }}
-                >
-                  <div className="font-semibold">
-                    #{task.number} — {task.subject}
-                  </div>
-                  <div className="text-sm text-gray-600 mt-1">{task.description}</div>
-                  <div className="text-sm mt-1 flex items-center gap-2">
-                    <span className="text-gray-700">Статус:</span>
-                    <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(task.status)}`}>
-                      {getStatusText(task.status)}
-                    </span>
-                  </div>
-                  <div className="text-sm mt-1 flex flex-wrap gap-2">
-                    {task.creator?.fullName && (
-                      <span >
-                        От: 
-                        <span className="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">
-                          {task.creator.fullName}
+                    <div className="text-lg font-semibold text-gray-800">{appeal.subject}</div>
+                    <div className="text-sm text-gray-600 mt-1 flex flex-wrap gap-2">
+                      {appeal.department?.name && (
+                        <span>
+                          Отдел: 
+                          <span className="px-2 py-1 rounded-full text-xs bg-indigo-100 text-indigo-800">
+                            {appeal.department.name}
+                          </span>
                         </span>
-                      </span>
-                    )}
-                    {task.department?.name && (
-                      <span>
-                        Отдел: 
-                        <span className="px-2 py-1 rounded-full text-xs bg-indigo-100 text-indigo-800">
-                          {task.department.name}
+                      )}
+                      {appeal.executors?.length ? (
+                        <span>
+                          Исполнители:
+                          <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                            {appeal.executors.map(e => e.fullName).filter(Boolean).join(', ')}
+                          </span> 
                         </span>
-                      </span>
-                    )}
-                    {task.executors?.length ? (
-                      <span>
-                        Исполнители: 
-                        <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
-                          {task.executors.map(e => e.fullName).filter(Boolean).join(', ')}
+                      ) : null}
+                      {appeal.executor?.fullName && (
+                        <span>
+                          Исполнитель: 
+                          <span className="px-2 py-1 rounded-full text-xs bg-teal-100 text-teal-800">
+                            {appeal.executor.fullName}
+                          </span>
                         </span>
-                      </span>
-                    ) : null}
-                    {task.executor?.fullName && (
-                      <span>
-                        Исполнитель: 
-                        <span className="px-2 py-1 rounded-full text-xs bg-teal-100 text-teal-800">
-                          {task.executor.fullName}
-                        </span>
-                      </span>
-                    )}
-                  </div>
-                  {task.status === 'PENDING' && (
-                    <div className="mt-2 text-right">
-                      <button
-                        onClick={() => setConfirmDialog({ open: true, taskId: task.id, taskSubject: task.subject, type: 'accept' })}
-                        className="bg-blue-500 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-600"
-                      >
-                        Принять задачу
-                      </button>
+                      )}
                     </div>
-                  )}
+                  </Link>
                 </div>
-              ))
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="myTasks">
-          <div className="mt-4 space-y-4">
-            {myTasks.length === 0 ? (
-              <div className="text-center text-gray-500">У вас пока нет задач</div>
-            ) : (
-              myTasks.map(task => (
-                <div
-                  key={task.id}
-                  className={`p-4 border rounded bg-white shadow-sm transition-all duration-500 ease-in-out ${
-                    task.updated ? 'animate-pulse bg-yellow-50' : ''
-                  } ${task.isClosing ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}
-                  onAnimationEnd={e => {
-                    if (e.animationName.includes('pulse')) {
-                      setMyTasks(prev => prev.map(t => (t.id === task.id ? { ...t, updated: false } : t)));
-                    }
-                  }}
-                >
-                  <div className="font-semibold">
-                    #{task.number} — {task.subject}
-                  </div>
-                  <div className="text-sm text-gray-600 mt-1">{task.description}</div>
-                  <div className="text-sm mt-1 flex items-center gap-2">
-                    <span className="text-gray-700">Статус:</span>
-                    <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(task.status)}`}>
-                      {getStatusText(task.status)}
-                    </span>
-                  </div>
-                  <div className="text-sm mt-1 flex flex-wrap gap-2">
-                    {task.creator?.fullName && (
-                      <span className="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">
-                        От: {task.creator.fullName}
-                      </span>
-                    )}
-                    {task.department?.name && (
-                      <span className="px-2 py-1 rounded-full text-xs bg-indigo-100 text-indigo-800">
-                        Отдел: {task.department.name}
-                      </span>
-                    )}
-                    {task.executors?.length ? (
-                      <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
-                        Исполнители: {task.executors.map(e => e.fullName).filter(Boolean).join(', ')}
-                      </span>
-                    ) : null}
-                    {task.executor?.fullName && (
-                      <span className="px-2 py-1 rounded-full text-xs bg-teal-100 text-teal-800">
-                        Исполнитель: {task.executor.fullName}
-                      </span>
-                    )}
-                  </div>
-                  {task.status === 'IN_PROGRESS' && (
-                    <div className="mt-2 flex gap-2 justify-end">
-                      <button
-                        onClick={() => updateTaskStatus(task.id, 'IN_CONFIRMATION')}
-                        className="bg-yellow-400 text-white px-3 py-1.5 rounded text-sm hover:bg-yellow-500"
-                      >
-                        Готово — на подтверждение
-                      </button>
-                      <button
-                        onClick={() => updateTaskStatus(task.id, 'REJECTED')}
-                        className="bg-red-500 text-white px-3 py-1.5 rounded text-sm hover:bg-red-600"
-                      >
-                        Отклонить
-                      </button>
-                    </div>
-                  )}
-                  {task.status === 'IN_CONFIRMATION' && (
-                    <div className="mt-2 text-right">
-                      <button
-                        onClick={() => updateTaskStatus(task.id, 'COMPLETED')}
-                        className="bg-green-500 text-white px-3 py-1.5 rounded text-sm hover:bg-green-600"
-                      >
-                        Подтвердить завершение
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        </TabsContent>
-      </Tabs>
+              </div>
+            );
+          })
+        )}
+      </div>
 
       <AlertDialog open={confirmDialog.open} onOpenChange={open => setConfirmDialog(prev => ({ ...prev, open }))}>
         <AlertDialogContent>
